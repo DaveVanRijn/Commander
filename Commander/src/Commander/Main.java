@@ -7,17 +7,20 @@ package Commander;
 
 import java.awt.Color;
 import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.BorderFactory;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.validator.routines.UrlValidator;
 
 /**
@@ -35,28 +38,55 @@ public class Main extends javax.swing.JDialog {
      */
     public Main(java.awt.Frame parent, boolean modal) {
         super(parent, modal);
+
+        //Set tranparant
+        Color transparant = new Color(0, 0, 0, 0);
         setUndecorated(true);
         getRootPane().setOpaque(false);
-        getContentPane().setBackground(new Color(0, 0, 0, 0));
-        setBackground(new Color(0, 0, 0, 0));
+        getContentPane().setBackground(transparant);
+        setBackground(transparant);
+
         initComponents();
+
+        //Set components transparant
+        transparant = new Color(0, 0, 0, 1);
+        txtCommand.setBackground(transparant);
+        txtCommand.setForeground(Color.GREEN);
+        txtCommand.setBorder(BorderFactory.createLineBorder(new Color(0, 0, 0, 150)));
+        jScrollPane1.getViewport().setBackground(transparant);
+        jScrollPane1.getViewport().setOpaque(false);
+        txtError.setBackground(transparant);
+        txtError.setForeground(Color.RED);
+        txtError.setEditable(false);
+        txtError.setFocusable(false);
+        jScrollPane1.setVisible(false);
         setAlwaysOnTop(true);
+
+        pack();
+        Rectangle screen = GraphicsEnvironment.getLocalGraphicsEnvironment().getMaximumWindowBounds();
+        int width = getPreferredSize().width;
+        int height = getPreferredSize().height;
+        setLocation(screen.width - width - 20, screen.height - height - 20);
 
         txtCommand.getDocument().addDocumentListener(new DocumentListener() {
 
             @Override
             public void insertUpdate(DocumentEvent e) {
-                lblError.setVisible(false);
+                if (jScrollPane1.isVisible()) {
+                    jScrollPane1.setVisible(false);
+                }
             }
 
             @Override
             public void removeUpdate(DocumentEvent e) {
-                lblError.setVisible(false);
+                if (jScrollPane1.isVisible()) {
+                    jScrollPane1.setVisible(false);
+                }
             }
 
             @Override
             public void changedUpdate(DocumentEvent e) {
-                lblError.setVisible(false);
+                //Not supported
             }
 
         });
@@ -72,8 +102,8 @@ public class Main extends javax.swing.JDialog {
 
     private static void error(String error) {
         String text = "Could not execute command, command /help for details.";
-        lblError.setText(text);
-        lblError.setVisible(true);
+        txtError.setText(text);
+        txtError.setVisible(true);
 
         Date date = new Date();
         SimpleDateFormat dateForm = new SimpleDateFormat("dd-MM-yyyy HH:mm");
@@ -85,7 +115,7 @@ public class Main extends javax.swing.JDialog {
     }
 
     private static void prepareCommand(String string) {
-        String extension;
+        String extension = null;
         List<String> options;
         String command;
         String[] commands = string.split(",");
@@ -93,28 +123,53 @@ public class Main extends javax.swing.JDialog {
 
         for (String s : commands) {
             options = getOptions(string);
-            string = options.remove(options.size() - 1);
-            //Check for website
-            if (new UrlValidator().isValid(string)) {
-
+            string = options.remove(options.size() - 1); //Get command without options
+            String website = string;
+            if (!website.contains("http") && !website.contains("https")) {
+                if (!website.contains("www.")) {
+                    website = "http://www." + website;
+                } else {
+                    website = "http://" + website;
+                }
+            }
+            if (new UrlValidator().isValid(website)) {
+                //Website
+                System.out.println("website");
+                runWebsite(website);
             } else {
-                extension = FilenameUtils.getExtension(string);
-                command = string.replace("." + extension, "");
+                //Not a website
+                if (string.lastIndexOf(".") < string.length() - 1 && string.lastIndexOf(".") > 0) {
+                    extension = string.substring(string.lastIndexOf("."), string.length() - 1);
+                    command = string.replace("." + extension, "");
+                } else {
+                    command = string;
+                }
             }
         }
+        System.out.println(string);
+    }
 
+    private static void runWebsite(String website) {
+        try {
+            Desktop.getDesktop().browse(URI.create(website));
+        } catch (IOException ex) {
+            Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     private static List<String> getOptions(String string) {
         List<String> options = new ArrayList<>();
+        if (string.startsWith(" ")) {
+            string = string.replaceFirst(" ", "");
+        }
         while (string.startsWith("/")) {
-            if (string.startsWith(" ")) {
-                string = string.replaceFirst(" ", "");
-            }
             int nextIndex = string.indexOf(" ");
             String option = string.substring(0, nextIndex);
             options.add(option);
             string = string.substring(nextIndex, string.length());
+            if (string.startsWith(" ")) {
+                string = string.replaceFirst(" ", "");
+            }
         }
         //Add rest of the string to the list
         options.add(string);
@@ -246,19 +301,23 @@ public class Main extends javax.swing.JDialog {
     private void initComponents() {
 
         txtCommand = new javax.swing.JTextField();
-        lblError = new javax.swing.JLabel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        txtError = new javax.swing.JTextArea();
 
         setDefaultCloseOperation(javax.swing.WindowConstants.DISPOSE_ON_CLOSE);
 
-        txtCommand.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
+        txtCommand.setFont(new java.awt.Font("Dialog", 1, 16)); // NOI18N
         txtCommand.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
                 txtCommandActionPerformed(evt);
             }
         });
 
-        lblError.setFont(new java.awt.Font("Dialog", 0, 14)); // NOI18N
-        lblError.setText("jLabel1");
+        txtError.setColumns(20);
+        txtError.setLineWrap(true);
+        txtError.setRows(5);
+        txtError.setWrapStyleWord(true);
+        jScrollPane1.setViewportView(txtError);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
@@ -267,21 +326,19 @@ public class Main extends javax.swing.JDialog {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(txtCommand, javax.swing.GroupLayout.DEFAULT_SIZE, 333, Short.MAX_VALUE)
-                        .addGap(47, 47, 47))
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(lblError)
-                        .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
+                    .addComponent(jScrollPane1)
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                        .addGap(0, 0, Short.MAX_VALUE)
+                        .addComponent(txtCommand, javax.swing.GroupLayout.PREFERRED_SIZE, 350, javax.swing.GroupLayout.PREFERRED_SIZE)))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
-                .addComponent(txtCommand, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(18, 18, 18)
-                .addComponent(lblError)
-                .addContainerGap(228, Short.MAX_VALUE))
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(txtCommand, javax.swing.GroupLayout.PREFERRED_SIZE, 76, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
         pack();
@@ -337,7 +394,8 @@ public class Main extends javax.swing.JDialog {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private static javax.swing.JLabel lblError;
+    private javax.swing.JScrollPane jScrollPane1;
     private static javax.swing.JTextField txtCommand;
+    private static javax.swing.JTextArea txtError;
     // End of variables declaration//GEN-END:variables
 }
